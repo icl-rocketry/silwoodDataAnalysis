@@ -15,9 +15,12 @@ columns = ['DAQ Temp',
                   'TT4: Detached',
                   'PT1', # pressure transducer 1
                   'PT2',
-                  'unknown8',
-                  'unknown9',
-                  'unknown10',
+                  'PT3',
+                  'PT4',
+                  'PT5',
+                  #'unknown8',
+                  #'unknown9',
+                  #'unknown10',
                   'unknown11',
                   'RunTank Mass', # mass of run tank
                   'Thrust',
@@ -44,7 +47,9 @@ log("Calibration value for 1600 psi transducer = ", psi1600calibration)
 log("Path of input file = ", rawPath)
 
 log('\nBEGINNING DATA IMPORT')
+
 raw = pd.read_csv(rawPath,names=columns)
+
 log('DATA IMPORT COMPLETE')
 log('\nRaw Imported Data File Sample:\n',raw.tail(8));
 
@@ -52,3 +57,6 @@ test = raw #create new variable for cleaned up data
 
 test.time -= test.time[0]; #normalize time to first index
 test.time = pd.to_timedelta(raw.time, unit="ms") #convert to time datatype
+
+#CREATE PLOTS
+[test.time, test.PT1].plot();
