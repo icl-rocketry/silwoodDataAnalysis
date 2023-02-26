@@ -3,6 +3,7 @@ import pandas as pd
 import argparse
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 
 def log( *input ):
     if(debugFlag):
@@ -14,9 +15,9 @@ def finish( *filename ):
     #else:
         #plt.show(block=True) #if it isnt, print the plot
 
-smoothingFactor = 1000 #how much the burn detection algorithm should smooth the data (increase this if the data is noisy and the program can't identify the burn)
-margin = 10000 #how many data rows the burn detection algorithm will pad the calculated burn start and end points with (increase if the burn gets cut off)
-burnDetectionSensitivity = 0.25 #0 - 1, higher = more sensitive, 0.5 is a good starting val (decrease if the algorithm is detecting a random spike as part of the burn)
+smoothingFactor = 100 #how much the burn detection algorithm should smooth the data (increase this if the data is noisy and the program can't identify the burn)
+margin = 100 #how many data rows the burn detection algorithm will pad the calculated burn start and end points with (increase if the burn gets cut off)
+burnDetectionSensitivity = 0.5 #0 - 1, higher = more sensitive, 0.5 is a good starting val (decrease if the algorithm is detecting a random spike as part of the burn)
 
 columns = ['DAQ Temp',
                   'TT1: Run Tank',
@@ -71,16 +72,16 @@ log("Path of input file = ", rawPath)
 log('\nBEGINNING DATA IMPORT')
 
 raw = pd.read_csv(rawPath,names=columns)
-raw = raw.loc[rangeStart:rangeEnd]
+raw = raw.loc[rangeStart:rangeEnd].reset_index()
 
 log('DATA IMPORT COMPLETE')
-log('\nRaw Imported Data File Sample:\n',raw.tail(8));
+log('\nRaw Imported Data File Sample:\n',raw.head(8));
 
 log('\nBEGIN CLEANING UP DATA')
 test = raw #create new variable for cleaned up data
 
 test.time -= test.time[0]; #normalize time to first index
-test.time = pd.to_timedelta(raw.time, unit="us") #convert to time datatype
+test.time = pd.to_timedelta(raw.time, unit="ms") #convert to time datatype
 
 test.PT1 /= psi1600calibration; #divide pressure values by calibration data
 test.PT2 /= psi1000calibration;
@@ -102,16 +103,36 @@ test.PT2 -= psi1600offset;
 test.PT3 -= psi1600offset;
 test.PT4 -= psi1600offset;
 test.PT5 -= psi1600offset;
+joe = test.PT5
+mama = test.time
 
 log('\nData Cleanup Finished - Sample:\n',test.tail(8))
 
 #FIND BURNS
-smoothedPT5 = test.PT5.ewm(span=smoothingFactor).mean(); #smooth out data so algorithm can identify major peaks (burns)
-maxPT5 = smoothedPT5.max() #find max value (assumed to be occuring during the burn)
+meanData = test.filter(items=["PT1", "PT2", "PT3", "PT4", "PT5"]).prod(axis=1) ** 1.0/5 #take the geometric avg of all pressure columns
+smoothedMean = meanData.ewm(span=smoothingFactor).mean(); #smooth out data so algorithm can identify major peaks (burns)
+maxMean = smoothedMean.max() #find max value (assumed to be occuring during the burn)
 
-smoothedPT5[smoothedPT5 < maxPT5*(1-burnDetectionSensitivity)] = None; #set all values less than burnDetectionSensitivity% of the max burn value to None
-if burnStart is None: burnStart = smoothedPT5.first_valid_index() - margin; # find the first index which isn't 'None' and add a margin
-if burnEnd is None: burnEnd = smoothedPT5.last_valid_index() + margin; # find the last index which isn't 'None' and add a margin
+maxMeanIndex = smoothedMean.idxmax() #find index of max value
+maxPT5 = test.PT5.iloc[maxMeanIndex-10000:maxMeanIndex+10000].max() #find the max pt5 value in the area surrounding that index
+maxMeanIndex = test.PT5.iloc[maxMeanIndex-10000:maxMeanIndex+10000].idxmax() #find the index of that max value
+
+log(maxMeanIndex)
+log(test.PT5[maxMeanIndex])
+
+
+dataAfterMax = joe.iloc[maxMeanIndex:] #create a temp array consting of all the data points after the max PT1 time index
+dataBeforeMax = joe.iloc[:maxMeanIndex].iloc[::-1] #create a temp array consting of all the data points before the max PT1 time index
+
+
+dataAfterMax[dataAfterMax < maxPT5*(1-0.8)] = None; #set all the values in each index below a certain threshold to N
+dataBeforeMax[dataBeforeMax < maxPT5*(1-burnDetectionSensitivity)] = None;
+
+log(dataBeforeMax.last_valid_index())
+log(dataAfterMax.last_valid_index())
+
+if burnStart is None: burnStart = dataBeforeMax.last_valid_index() - margin; # find the first index which isn't 'None' and add a margin
+if burnEnd is None: burnEnd = dataAfterMax.last_valid_index() + margin; # find the last index which isn't 'None' and add a margin
 
 log('\nBurn Start: ',test.time[burnStart])
 log('Burn End: ',test.time[burnEnd])
@@ -122,9 +143,14 @@ log("\nFinal Data Sample:",test.head(16))
 
 #CREATE PLOTS
 ax = test.plot(x="time", y=["PT1", "PT2", "PT3", "PT4", "PT5"])
-date_form = mpl.dates.DateFormatter("%S.%f")
-ax.xaxis.set_major_formatter(date_form)
+finish("pressure.png")
+
+ax = test.plot(x="time", y=["Thrust"])
 finish("thrust.png")
+
+
+
+
 
 
 
