@@ -93,18 +93,18 @@ test.PT1 /= psi1600calibration; #divide pressure values by calibration data
 test.PT2 /= psi1000calibration;
 test.PT3 /= psi1600calibration;
 test.PT4 /= psi1600calibration;
-test.PT5 /= psi1600calibration;
+test.PT5 /= psi1000calibration;
 test.Thrust *= -1 #makes thrust data positive if it's negative
 
 #AUTOMATIC PRESSURE GAUGE OFFSET CALCULATION
 if psi1600offset is None:
-    psi1600offset = test.PT5.tail(1000).median(); #PT5 is open to the air and should be at 0 after the test. Take the median of the last 1000 datapoints and use it as the offset
+    psi1600offset = test.PT2.tail(1000).median(); #PT5 is open to the air and should be at 0 after the test. Take the median of the last 1000 datapoints and use it as the offset
 else:
     psi1600offset /= psi1600calibration #Otherwise use the provided calibration factor
 
 #AUTOMATIC THRUST OFFSET CALCULATION
 if forceOffset is None:
-    forceOffset = test.Thrust.tail(1000).median(); #PT5 is open to the air and should be at 0 after the test. Take the median of the last 1000 datapoints and use it as the offset
+    forceOffset = test.Thrust.head(100).median(); #PT5 is open to the air and should be at 0 after the test. Take the median of the last 1000 datapoints and use it as the offset
 else:
     psi1600offset /= psi1600calibration #Otherwise use the provided calibration factor
 
@@ -116,7 +116,7 @@ test.PT1 -= psi1600offset;
 test.PT2 -= psi1600offset;
 test.PT3 -= psi1600offset;
 test.PT4 -= psi1600offset;
-test.PT5 -= psi1600offset;
+test.PT5 -= psi1600offset*psi1600calibration/psi1000calibration;
 mama = test.time
 
 test.Thrust -= forceOffset
