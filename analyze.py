@@ -90,7 +90,7 @@ test.timeRaw = raw.time
 test.time = pd.to_timedelta(raw.time, unit="ms") #convert to time datatype
 
 test.PT1 /= psi1600calibration; #divide pressure values by calibration data
-test.PT2 /= psi1000calibration;
+test.PT2 /= psi1600calibration;
 test.PT3 /= psi1600calibration;
 test.PT4 /= psi1600calibration;
 test.PT5 /= psi1000calibration;
@@ -110,13 +110,11 @@ else:
 
 log('Calculated pressure gauge offset = ', psi1600offset*psi1600calibration)
 
-log()
-
-test.PT1 -= psi1600offset;
-test.PT2 -= psi1600offset;
-test.PT3 -= psi1600offset;
-test.PT4 -= psi1600offset;
-test.PT5 -= psi1600offset*psi1600calibration/psi1000calibration;
+test.PT1 -= test.PT1.tail(1000).median();
+test.PT2 -= test.PT2.tail(1000).median();
+test.PT3 -= test.PT3.tail(1000).median();
+test.PT4 -= test.PT4.tail(1000).median();
+test.PT5 -= test.PT5.tail(1000).median();
 mama = test.time
 
 test.Thrust -= forceOffset
@@ -160,7 +158,6 @@ if burnEnd is None: burnEnd = dataAfterMax.last_valid_index() + margin; # find t
 log('\nBurn Start: ',test.time[burnStart])
 log('Burn End: ',test.time[burnEnd])
 log('Burn Duration: ', test.timeRaw[burnEnd] - test.timeRaw[burnStart] - 2*margin, 'ms')
-65
 test = test.iloc[burnStart:burnEnd] #get rid of all non-burn data
 
 log("\nFinal Data Sample:",test.head(16))
