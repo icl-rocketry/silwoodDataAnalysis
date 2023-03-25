@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import integrate
+from numpy import genfromtxt
 
 def log( *input ):
     if(debugFlag):
@@ -53,6 +54,9 @@ parser.add_argument('-bStart', nargs='?', const = None, type=int, help='manually
 parser.add_argument('-bEnd', nargs='?', const = None, type=int, help='manually specify index where burn ends', default = None, dest='burnEnd')
 parser.add_argument('-start', nargs='?', const = None, type=int, help='manually cut off data before index', default = None, dest='rangeStart')
 parser.add_argument('-end', nargs='?', const = None, type=int, help='manually cut off data after index', default = None, dest='rangeEnd')
+parser.add_argument('-flow', nargs='?', const=True, help="analyze data from methanol flow sensor", default=False, dest='isFlowSensor')
+parser.add_argument('-flowCSVPath', nargs='?', const = 'pulseTimes.csv', help='flow sensor data path', default = 'pulseTimes.csv', dest='flowCSVPath')
+parser.add_argument('-leftoverFuel', nargs='?', const = 0, type=float, help='Amount of fuel (L) leftover after the hotfire (use with -flow)', default = 0, dest='leftoverFuel')
 
 
 results = parser.parse_args()
@@ -69,6 +73,9 @@ rangeEnd = results.rangeEnd;
 rangeStart = results.rangeStart;
 forceCalibration = results.forceCalibration;
 forceOffset = results.forceOffset;
+isFlowSensor = results.isFlowSensor;
+leftoverFuel = results.leftoverFuel;
+flowCSVPath = results.flowCSVPath;
 
 log("\nCONSTANTS:\nCalibration value for 1000 psi transducer = ", psi1000calibration)
 log("Calibration value for 1600 psi transducer = ", psi1600calibration)
@@ -78,6 +85,9 @@ log('\nBEGINNING DATA IMPORT')
 
 raw = pd.read_csv(rawPath,names=columns)
 raw = raw.loc[rangeStart:rangeEnd].reset_index()
+
+if(isFlowSensor):
+    flow = genfromtxt(flowCSVPath, delimiter=',')
 
 log('DATA IMPORT COMPLETE')
 log('\nRaw Imported Data File Sample:\n',raw.head(8));
@@ -165,6 +175,18 @@ log("\nFinal Data Sample:",test.head(16))
 chungus /= 1000 #convert ms to s
 impulse = integrate.trapezoid(test.Thrust,chungus.iloc[burnStart:burnEnd])*1000
 
+if(isFlowSensor):
+    flow /= 1000000 #convert from us to s
+    #flow = np.sort(flow)
+    log(flow.size)
+    tankLevel = np.linspace(3, leftoverFuel, num=(flow.size))
+    #flow = np.stack((tankLevel,flow), axis=-1)
+    log(flow)
+    ax = plt.plot(flow,tankLevel)
+    flowRate = np.diff(tankLevel) / np.diff(flow)
+    ax = plt.plot(flow[1:],flowRate)
+    
+    
 #CREATE PLOTS
 ax = test.plot(x="time", y=["PT1", "PT2", "PT3", "PT4", "PT5"])
 finish("pressure.png")
