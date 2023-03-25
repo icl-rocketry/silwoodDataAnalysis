@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import integrate
+from scipy import fftpack as sp
 from numpy import genfromtxt
 
 def log( *input ):
